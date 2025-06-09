@@ -13,6 +13,8 @@
   let favoriteChannels = [];
   let recentChannels = [];
   let showingTab = 'favorites'; // 'favorites', 'recent', 'search'
+  let availableDevices = [];
+  let loadingDevices = false;
 
   const dayNames = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
 
@@ -20,6 +22,7 @@
     await loadSchedules();
     await loadFavoriteChannels();
     await loadRecentChannels();
+    await loadDevices();
   });
 
   async function loadSchedules() {
@@ -45,6 +48,19 @@
       recentChannels = await favoritesApi.getRecent();
     } catch (err) {
       console.error('Failed to load recent channels:', err);
+    }
+  }
+
+  async function loadDevices() {
+    loadingDevices = true;
+    try {
+      const response = await fetch('/api/devices');
+      availableDevices = await response.json();
+    } catch (err) {
+      console.error('Failed to load devices:', err);
+      error = 'デバイス情報の読み込みに失敗しました';
+    } finally {
+      loadingDevices = false;
     }
   }
 
@@ -127,13 +143,19 @@
   }
 
   function addSchedule() {
+    // デフォルトデバイスを検索して自動選択
+    const defaultDevice = availableDevices.find(device => device.is_default && device.is_active);
+    const selectedDeviceId = defaultDevice ? defaultDevice.id :
+      (availableDevices.filter(device => device.is_active).length === 1 ?
+        availableDevices.find(device => device.is_active).id : null);
+
     editingSchedule = {
       channel_id: '',
       channel_name: '',
       day_of_week: 1,
       start_time: '09:00',
       duration_minutes: 120,
-      device_id: null,
+      device_id: selectedDeviceId,
       is_active: true
     };
     isEditing = true;
@@ -375,6 +397,41 @@
           />
         </div>
 
+        <!-- デバイス選択 -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">キャストデバイス</label>
+          {#if loadingDevices}
+            <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500">
+              デバイス情報を読み込み中...
+            </div>
+          {:else if availableDevices.length === 0}
+            <div class="w-full px-3 py-2 border border-red-300 rounded-md bg-red-50 text-red-700">
+              利用可能なデバイスがありません。デバイス管理ページでデバイスをスキャンしてください。
+            </div>
+          {:else}
+            <select
+              bind:value={editingSchedule.device_id}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value={null}>デバイスを選択してください</option>
+              {#each availableDevices.filter(device => device.is_active) as device}
+                <option value={device.id}>
+                  {device.name} ({device.ip_address})
+                  {device.is_default ? ' [デフォルト]' : ''}
+                </option>
+              {/each}
+            </select>
+            <div class="mt-1 text-xs text-gray-500">
+              {#if availableDevices.some(device => device.is_default)}
+                <span class="text-blue-600">デフォルトデバイスが自動選択されます</span>
+              {:else}
+                <span>デバイス管理でデフォルトデバイスを設定できます</span>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
         <div class="flex items-center">
           <input
             type="checkbox"
@@ -388,7 +445,7 @@
         <div class="flex space-x-2">
           <button
             type="submit"
-            disabled={!editingSchedule.channel_id || !editingSchedule.channel_name}
+            disabled={!editingSchedule.channel_id || !editingSchedule.channel_name || !editingSchedule.device_id}
             class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
           >
             保存
@@ -433,6 +490,9 @@
                   配信時間
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  キャストデバイス
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   状態
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -452,6 +512,22 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {schedule.duration_minutes}分
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {#if schedule.device_name}
+                      <div class="flex items-center">
+                        <span class="font-medium">{schedule.device_name}</span>
+                        {#if schedule.is_default_device}
+                          <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">デフォルト</span>
+                        {/if}
+                        {#if !schedule.device_is_active}
+                          <span class="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">無効</span>
+                        {/if}
+                      </div>
+                      <div class="text-xs text-gray-500">{schedule.device_ip}</div>
+                    {:else}
+                      <span class="text-red-600 text-sm">デバイス未指定</span>
+                    {/if}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span class="px-2 py-1 text-xs font-semibold rounded-full

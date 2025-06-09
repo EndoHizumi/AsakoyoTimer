@@ -112,12 +112,43 @@ class ChromeCastService {
         );
     }
 
+    async getTargetDevice(deviceId) {
+        let device;
+        
+        // 1. 指定されたデバイスを検索
+        if (deviceId) {
+            device = await this.getDevice(deviceId);
+            if (device) {
+                console.log(`Using specified device: ${device.name} (ID: ${device.id})`);
+                return device;
+            }
+            console.warn(`Specified device ID ${deviceId} not found or inactive, falling back...`);
+        }
+        
+        // 2. デフォルトデバイスを検索
+        device = await this.database.get(
+            'SELECT * FROM chromecast_devices WHERE is_default = 1 AND is_active = 1'
+        );
+        if (device) {
+            console.log(`Using default device: ${device.name} (ID: ${device.id})`);
+            return device;
+        }
+        
+        // 3. 最初のアクティブデバイスを選択
+        device = await this.database.get(
+            'SELECT * FROM chromecast_devices WHERE is_active = 1 ORDER BY last_seen DESC LIMIT 1'
+        );
+        if (device) {
+            console.log(`Using first available device: ${device.name} (ID: ${device.id})`);
+            return device;
+        }
+        
+        throw new Error('No available ChromeCast device found. Please scan for devices or ensure at least one device is active.');
+    }
+
     async startCast(videoId, deviceId, scheduleId = null) {
         try {
-            const device = await this.getDevice(deviceId);
-            if (!device) {
-                throw new Error(`Device with ID ${deviceId} not found`);
-            }
+            const device = await this.getTargetDevice(deviceId);
 
             // 既存のキャストがある場合は停止
             if (this.currentCast) {

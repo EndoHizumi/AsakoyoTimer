@@ -6,7 +6,17 @@ function createApiRoutes(database, youtubeService, chromecastService, scheduleSe
     // スケジュール管理API
     router.get('/schedules', async (req, res) => {
         try {
-            const schedules = await database.all('SELECT * FROM schedules ORDER BY day_of_week, start_time');
+            const schedules = await database.all(`
+                SELECT
+                    s.*,
+                    d.name as device_name,
+                    d.is_default as is_default_device,
+                    d.is_active as device_is_active,
+                    d.ip_address as device_ip
+                FROM schedules s
+                LEFT JOIN chromecast_devices d ON s.device_id = d.id
+                ORDER BY s.day_of_week, s.start_time
+            `);
             res.json(schedules);
         } catch (error) {
             console.error('Get schedules error:', error);
