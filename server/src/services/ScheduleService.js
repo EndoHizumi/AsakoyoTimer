@@ -102,11 +102,27 @@ class ScheduleService {
 
                 // ChromeCastでキャスト開始
                 if (schedule.device_id) {
-                    await this.chromecastService.startCast(
-                        liveStream.videoId,
-                        schedule.device_id,
-                        schedule.id
-                    );
+                    try {
+                        await this.chromecastService.startCast(
+                            liveStream.videoId,
+                            schedule.device_id,
+                            schedule.id
+                        );
+                    } catch (castError) {
+                        console.error(`Cast failed for schedule ${schedule.id}:`, castError.message);
+                        // Cast error should not crash the server, just log it
+                        if (this.wsManager) {
+                            this.wsManager.broadcast({
+                                type: 'cast_failed',
+                                data: {
+                                    scheduleId: schedule.id,
+                                    channelName: schedule.channel_name,
+                                    error: castError.message,
+                                    timestamp: new Date()
+                                }
+                            });
+                        }
+                    }
                 } else {
                     console.warn(`No device specified for schedule ${schedule.id}`);
                 }
