@@ -106,6 +106,36 @@ class AutoCastServer {
             this.wsManager
         ));
 
+        // YouTube redirect endpoint for Chromecast
+        this.app.get('/youtube-redirect/:videoId', (req, res) => {
+            const { videoId } = req.params;
+            const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            
+            const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirecting to YouTube...</title>
+    <meta http-equiv="refresh" content="0; url=${youtubeUrl}">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .loading { font-size: 18px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="loading">Redirecting to YouTube...</div>
+    <script>
+        setTimeout(function() {
+            window.location.href = '${youtubeUrl}';
+        }, 1000);
+    </script>
+</body>
+</html>`;
+            
+            res.send(html);
+        });
+
         // Health check endpoint
         this.app.get('/health', (req, res) => {
             res.json({
