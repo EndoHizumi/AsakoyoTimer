@@ -1,0 +1,19 @@
+{
+  "name": "youtube-autocast",
+  "version": "1.0.0",
+  "description": "YouTube自動Cast配信システム",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "setup": "npm run install:all && cp .env.example .env"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
