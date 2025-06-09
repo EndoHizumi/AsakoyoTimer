@@ -1,5 +1,6 @@
 const Client = require('castv2-client').Client;
 const DefaultMediaReceiver = require('castv2-client').DefaultMediaReceiver;
+const Youtube = require('youtube-castv2-client').Youtube;
 const bonjour = require('bonjour')();
 const NetworkScanner = require('../utils/networkScanner');
 
@@ -164,31 +165,23 @@ class ChromeCastService {
                 });
             });
 
-            const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-            
-            const media = {
-                contentId: youtubeUrl,
-                contentType: 'video/mp4',
-                streamType: 'LIVE',
-                metadata: {
-                    type: 0,
-                    metadataType: 0,
-                    title: 'YouTube Live Stream'
-                }
-            };
+            console.log('ChromeCast接続成功');
 
             return new Promise((resolve, reject) => {
-                client.launch(DefaultMediaReceiver, (err, player) => {
+                client.launch(Youtube, (err, player) => {
                     if (err) {
                         reject(err);
                         return;
                     }
 
-                    player.load(media, { autoplay: true }, async (err, status) => {
+                    // YouTube動画IDを直接指定してcast
+                    player.load(videoId, async (err, status) => {
                         if (err) {
                             reject(err);
                             return;
                         }
+
+                        console.log(`YouTube配信開始: ${videoId}`);
 
                         this.currentCast = {
                             videoId,
@@ -203,7 +196,7 @@ class ChromeCastService {
                         const logResult = await this.database.createCastLog({
                             schedule_id: scheduleId,
                             video_id: videoId,
-                            video_title: media.metadata.title,
+                            video_title: 'YouTube Live Stream',
                             device_id: device.id,
                             status: 'started'
                         });
@@ -247,7 +240,7 @@ class ChromeCastService {
                 });
             });
         } catch (error) {
-            console.error('Cast start error:', error);
+            console.error('YouTube Cast失敗:', error);
             
             // エラーログを記録
             if (deviceId) {
