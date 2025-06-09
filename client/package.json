@@ -1,0 +1,19 @@
+{
+  "name": "youtube-autocast-client",
+  "version": "1.0.0",
+  "description": "YouTube自動Cast配信システム クライアント",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite dev --port 5173",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^2.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "svelte": "^4.0.0",
+    "tailwindcss": "^3.3.0",
+    "vite": "^4.4.0"
+  },
+  "type": "module"
+}
