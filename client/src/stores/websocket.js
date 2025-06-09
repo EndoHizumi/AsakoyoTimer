@@ -113,6 +113,28 @@ class WebSocketService {
                 }
                 break;
 
+            case 'cast_retry_started':
+                console.log('Cast retry started:', data.data);
+                break;
+
+            case 'cast_retry_attempt':
+                console.log('Cast retry attempt:', data.data);
+                break;
+
+            case 'cast_retry_success':
+                console.log('Cast retry success:', data.data);
+                castStatus.update(status => ({
+                    ...status,
+                    isActive: true,
+                    videoId: data.data.result?.videoId,
+                    deviceName: data.data.result?.deviceName
+                }));
+                break;
+
+            case 'cast_retry_failed':
+                console.error('Cast retry failed:', data.data);
+                break;
+
             case 'error':
                 console.error('WebSocket error message:', data.data);
                 break;

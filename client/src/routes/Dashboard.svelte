@@ -6,6 +6,7 @@
   let systemInfo = null;
   let error = null;
   let loading = true;
+  let retryInProgress = false;
 
   onMount(async () => {
     try {
@@ -22,6 +23,36 @@
       await castApi.stop();
     } catch (err) {
       error = err.message;
+    }
+  }
+
+  async function handleRetryCast() {
+    if (retryInProgress) return;
+    
+    try {
+      retryInProgress = true;
+      const response = await fetch('/api/cast/retry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          maxRetries: 3,
+          retryDelay: 5000
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'リトライに失敗しました');
+      }
+      
+      // 成功通知は WebSocket 経由で受信される
+    } catch (err) {
+      error = err.message;
+    } finally {
+      retryInProgress = false;
     }
   }
 
@@ -82,16 +113,32 @@
             <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{statusText}</span>
           </div>
           
-          {#if $castStatus.isActive}
-            <button
-              on:click={handleStopCast}
-              class="px-4 py-2 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-md text-sm transition-colors shadow-sm"
-              style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
-            >
-              <span class="material-icons text-sm mr-1">stop</span>
-              停止
-            </button>
-          {/if}
+          <div class="flex space-x-2">
+            {#if $castStatus.isActive}
+              <button
+                on:click={handleStopCast}
+                class="px-4 py-2 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-md text-sm transition-colors shadow-sm"
+                style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+              >
+                <span class="material-icons text-sm mr-1">stop</span>
+                停止
+              </button>
+            {/if}
+            
+            {#if $castStatus.lastCastAttempt}
+              <button
+                on:click={handleRetryCast}
+                disabled={retryInProgress}
+                class="px-4 py-2 bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md text-sm transition-colors shadow-sm flex items-center"
+                style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+              >
+                <span class="material-icons text-sm mr-1 {retryInProgress ? 'animate-spin' : ''}">
+                  refresh
+                </span>
+                {retryInProgress ? 'リトライ中...' : 'リトライ'}
+              </button>
+            {/if}
+          </div>
         </div>
         
         {#if $castStatus.isActive}

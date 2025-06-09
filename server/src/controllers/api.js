@@ -199,6 +199,26 @@ function createApiRoutes(database, youtubeService, chromecastService, scheduleSe
         }
     });
 
+    router.post('/cast/retry', async (req, res) => {
+        try {
+            const { maxRetries = 3, retryDelay = 5000 } = req.body;
+            
+            const result = await chromecastService.retryCast(maxRetries, retryDelay);
+            
+            res.json({
+                success: true,
+                message: 'キャストリトライが成功しました',
+                result
+            });
+        } catch (error) {
+            console.error('Cast retry error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    });
+
     // YouTube API
     router.get('/youtube/search', async (req, res) => {
         try {
