@@ -11,6 +11,7 @@ class ChromeCastService {
         this.devices = new Map();
         this.currentCast = null;
         this.browser = null;
+        this.lastCastAttempt = null;
     }
 
     async discoverDevices() {
@@ -149,6 +150,9 @@ class ChromeCastService {
 
     async startCast(videoId, deviceId, scheduleId = null) {
         try {
+            // キャスト試行情報を記録
+            this.lastCastAttempt = { videoId, deviceId, scheduleId };
+            
             const device = await this.getTargetDevice(deviceId);
 
             // 既存のキャストがある場合は停止
@@ -158,10 +162,35 @@ class ChromeCastService {
 
             const client = new Client();
             
+            // Resolve hostname to IP if needed
+            let targetIP = device.ip_address;
+            if (device.ip_address.endsWith('.local')) {
+                console.log(`Resolving .local hostname: ${device.ip_address}`);
+                try {
+                    const dns = require('dns').promises;
+                    const result = await dns.lookup(device.ip_address);
+                    targetIP = result.address;
+                    console.log(`Resolved ${device.ip_address} to ${targetIP}`);
+                } catch (dnsError) {
+                    console.error(`Failed to resolve ${device.ip_address}:`, dnsError.message);
+                    throw new Error(`Cannot resolve device hostname: ${device.ip_address}`);
+                }
+            }
+            
             await new Promise((resolve, reject) => {
-                client.connect(device.ip_address, (err) => {
-                    if (err) reject(err);
-                    else resolve();
+                const connectionTimeout = setTimeout(() => {
+                    reject(new Error(`Connection timeout to ${targetIP}`));
+                }, 10000);
+                
+                client.connect(targetIP, (err) => {
+                    clearTimeout(connectionTimeout);
+                    if (err) {
+                        console.error(`Connection failed to ${targetIP}:`, err);
+                        reject(err);
+                    } else {
+                        console.log(`Connected successfully to ${targetIP}`);
+                        resolve();
+                    }
                 });
             });
 
@@ -170,18 +199,47 @@ class ChromeCastService {
             return new Promise((resolve, reject) => {
                 client.launch(Youtube, (err, player) => {
                     if (err) {
+                        console.error('YouTube app launch failed:', err);
                         reject(err);
                         return;
                     }
 
+                    console.log('YouTube app launched successfully');
+
+                    // プレイヤーイベントのリスニングを先に設定
+                    player.on('status', (status) => {
+                        console.log('Player status:', JSON.stringify(status, null, 2));
+                        if (this.wsManager) {
+                            this.wsManager.broadcast({
+                                type: 'player_status',
+                                data: { status, timestamp: new Date() }
+                            });
+                        }
+                    });
+
+                    // エラーイベントのリスニング
+                    player.on('error', (error) => {
+                        console.error('Player error:', error);
+                    });
+
+                    // YouTube動画IDの形式チェック
+                    if (!videoId || typeof videoId !== 'string' || videoId.length < 10) {
+                        reject(new Error(`Invalid YouTube video ID: ${videoId}`));
+                        return;
+                    }
+
+                    console.log(`Loading YouTube video ID: ${videoId}`);
+
                     // YouTube動画IDを直接指定してcast
                     player.load(videoId, async (err, status) => {
                         if (err) {
+                            console.error('Video load failed:', err);
                             reject(err);
                             return;
                         }
 
-                        console.log(`YouTube配信開始: ${videoId}`);
+                        console.log(`YouTube配信開始成功: ${videoId}`);
+                        console.log('Load status:', JSON.stringify(status, null, 2));
 
                         this.currentCast = {
                             videoId,
@@ -219,6 +277,19 @@ class ChromeCastService {
                         // デバイスの最終確認時刻を更新
                         await this.database.updateDeviceLastSeen(device.id);
 
+                        // 動画が実際に再生されているかを確認するための追加ログ
+                        setTimeout(() => {
+                            if (this.currentCast && this.currentCast.player) {
+                                this.currentCast.player.getStatus((err, status) => {
+                                    if (err) {
+                                        console.error('Failed to get player status:', err);
+                                    } else {
+                                        console.log('Current player status after 3s:', JSON.stringify(status, null, 2));
+                                    }
+                                });
+                            }
+                        }, 3000);
+
                         resolve({
                             success: true,
                             videoId,
@@ -226,31 +297,41 @@ class ChromeCastService {
                             status
                         });
                     });
-
-                    // プレイヤーイベントのリスニング
-                    player.on('status', (status) => {
-                        console.log('Player status:', status);
-                        if (this.wsManager) {
-                            this.wsManager.broadcast({
-                                type: 'player_status',
-                                data: { status, timestamp: new Date() }
-                            });
-                        }
-                    });
                 });
             });
         } catch (error) {
             console.error('YouTube Cast失敗:', error);
             
             // エラーログを記録
-            if (deviceId) {
-                await this.database.createCastLog({
-                    schedule_id: scheduleId,
-                    video_id: videoId,
-                    device_id: deviceId,
-                    status: 'error',
-                    error_message: error.message
-                });
+            try {
+                if (deviceId) {
+                    await this.database.createCastLog({
+                        schedule_id: scheduleId,
+                        video_id: videoId,
+                        device_id: deviceId,
+                        status: 'error',
+                        error_message: error.message
+                    });
+                }
+            } catch (logError) {
+                console.error('Failed to log cast error:', logError);
+            }
+
+            // WebSocketでエラーを通知
+            if (this.wsManager) {
+                try {
+                    this.wsManager.broadcast({
+                        type: 'cast_error',
+                        data: {
+                            error: error.message,
+                            videoId,
+                            deviceId,
+                            timestamp: new Date()
+                        }
+                    });
+                } catch (wsError) {
+                    console.error('Failed to broadcast error:', wsError);
+                }
             }
 
             throw error;
@@ -329,8 +410,95 @@ class ChromeCastService {
             videoId: this.currentCast.videoId,
             deviceName: this.currentCast.device,
             deviceId: this.currentCast.deviceId,
-            scheduleId: this.currentCast.scheduleId
+            scheduleId: this.currentCast.scheduleId,
+            lastCastAttempt: this.lastCastAttempt
         };
+    }
+
+    async retryCast(maxRetries = 3, retryDelay = 5000) {
+        if (!this.lastCastAttempt) {
+            throw new Error('No previous cast attempt found. Cannot retry without initial cast parameters.');
+        }
+
+        const { videoId, deviceId, scheduleId } = this.lastCastAttempt;
+        
+        // WebSocketでリトライ開始を通知
+        if (this.wsManager) {
+            this.wsManager.broadcast({
+                type: 'cast_retry_started',
+                data: {
+                    videoId,
+                    deviceId,
+                    maxRetries,
+                    timestamp: new Date()
+                }
+            });
+        }
+
+        let lastError;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`キャストリトライ試行 ${attempt}/${maxRetries}: ${videoId}`);
+                
+                // WebSocketでリトライ試行を通知
+                if (this.wsManager) {
+                    this.wsManager.broadcast({
+                        type: 'cast_retry_attempt',
+                        data: {
+                            attempt,
+                            maxRetries,
+                            videoId,
+                            timestamp: new Date()
+                        }
+                    });
+                }
+
+                const result = await this.startCast(videoId, deviceId, scheduleId);
+                
+                // 成功時の通知
+                if (this.wsManager) {
+                    this.wsManager.broadcast({
+                        type: 'cast_retry_success',
+                        data: {
+                            attempt,
+                            result,
+                            timestamp: new Date()
+                        }
+                    });
+                }
+
+                console.log(`キャストリトライ成功: ${attempt}回目の試行で成功`);
+                return result;
+
+            } catch (error) {
+                lastError = error;
+                console.error(`キャストリトライ試行 ${attempt} 失敗:`, error.message);
+
+                // 最後の試行でなければ待機
+                if (attempt < maxRetries) {
+                    console.log(`${retryDelay}ms待機後に再試行...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
+            }
+        }
+
+        // すべての試行が失敗した場合
+        const finalError = new Error(`キャストリトライが${maxRetries}回すべて失敗しました。最後のエラー: ${lastError.message}`);
+        
+        // WebSocketで失敗を通知
+        if (this.wsManager) {
+            this.wsManager.broadcast({
+                type: 'cast_retry_failed',
+                data: {
+                    maxRetries,
+                    error: finalError.message,
+                    lastError: lastError.message,
+                    timestamp: new Date()
+                }
+            });
+        }
+
+        throw finalError;
     }
 
     async testDeviceConnection(deviceId) {
@@ -340,10 +508,13 @@ class ChromeCastService {
                 throw new Error(`Device with ID ${deviceId} not found`);
             }
 
+            console.log(`Testing connection to device: ${device.name} (${device.ip_address}:${device.port})`);
+
             const client = new Client();
             
             return new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
+                    console.log('Connection test timeout');
                     client.close();
                     reject(new Error('Connection timeout'));
                 }, 10000);
@@ -351,11 +522,31 @@ class ChromeCastService {
                 client.connect(device.ip_address, (err) => {
                     clearTimeout(timeout);
                     if (err) {
+                        console.error('Connection test failed:', err);
                         reject(err);
                     } else {
-                        client.close();
-                        resolve(true);
+                        console.log('Connection test successful');
+                        
+                        // YouTube アプリのテスト起動
+                        client.launch(Youtube, (err, player) => {
+                            if (err) {
+                                console.error('YouTube app launch test failed:', err);
+                                client.close();
+                                reject(new Error(`YouTube app launch failed: ${err.message}`));
+                                return;
+                            }
+                            
+                            console.log('YouTube app launch test successful');
+                            client.close();
+                            resolve(true);
+                        });
                     }
+                });
+
+                client.on('error', (err) => {
+                    clearTimeout(timeout);
+                    console.error('Client error during test:', err);
+                    reject(err);
                 });
             });
         } catch (error) {
