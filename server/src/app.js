@@ -82,14 +82,7 @@ class AutoCastServer {
     setupExpress() {
         // Security middleware
         this.app.use(helmet({
-            contentSecurityPolicy: {
-                directives: {
-                    ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-                    "script-src": ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
-                    "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-                    "font-src": ["'self'", "https://fonts.gstatic.com"]
-                }
-            }
+            contentSecurityPolicy: false // Disable CSP for development/local network access
         }));
         
         // CORS configuration
