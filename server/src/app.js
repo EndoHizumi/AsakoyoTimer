@@ -85,7 +85,7 @@ class AutoCastServer {
         
         // CORS configuration
         this.app.use(cors({
-            origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:3000'],
+            origin: process.env.NODE_ENV === 'production' ? true : ['http://localhost:5173', 'http://localhost:3000'],
             credentials: true
         }));
 
