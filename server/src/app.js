@@ -79,11 +79,56 @@ class AutoCastServer {
         }
     }
 
+    getHelmetConfig(securityMode) {
+        switch (securityMode) {
+            case 'strict':
+                return {
+                    contentSecurityPolicy: {
+                        directives: {
+                            "default-src": ["'self'"],
+                            "script-src": ["'self'"],
+                            "style-src": ["'self'", "https://fonts.googleapis.com"],
+                            "font-src": ["'self'", "https://fonts.gstatic.com"],
+                            "connect-src": ["'self'", "wss:"],
+                            "img-src": ["'self'", "data:"],
+                            "object-src": ["'none'"],
+                            "frame-ancestors": ["'none'"]
+                        }
+                    }
+                };
+
+            case 'production':
+                return {
+                    contentSecurityPolicy: {
+                        directives: {
+                            "default-src": ["'self'"],
+                            "script-src": ["'self'", "'unsafe-eval'"],
+                            "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+                            "font-src": ["'self'", "https://fonts.gstatic.com"],
+                            "connect-src": ["'self'", "ws:", "wss:"],
+                            "img-src": ["'self'", "data:", "https:"],
+                            "object-src": ["'none'"],
+                            "frame-ancestors": ["'none'"]
+                        }
+                    },
+                    crossOriginResourcePolicy: { policy: "same-origin" }
+                };
+
+            case 'local':
+            default:
+                return {
+                    contentSecurityPolicy: false, // ローカル環境では無効化
+                    crossOriginEmbedderPolicy: false,
+                    crossOriginResourcePolicy: { policy: "cross-origin" }
+                };
+        }
+    }
+
     setupExpress() {
         // Security middleware
-        this.app.use(helmet({
-            contentSecurityPolicy: false // Disable CSP for development/local network access
-        }));
+        const securityMode = process.env.SECURITY_MODE || 'local';
+        const helmetConfig = this.getHelmetConfig(securityMode);
+        this.app.use(helmet(helmetConfig));
         
         // CORS configuration
         this.app.use(cors({

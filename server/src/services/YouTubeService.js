@@ -11,27 +11,73 @@ class YouTubeService {
 
     async checkChannelLive(channelId) {
         try {
-            const response = await this.youtube.search.list({
+            console.log(`Checking live stream for channel: ${channelId}`);
+            
+            // Method 1: search.list with eventType
+            const searchResponse = await this.youtube.search.list({
                 channelId: channelId,
                 eventType: 'live',
                 type: 'video',
                 part: 'snippet',
-                maxResults: 1
+                maxResults: 10,
+                order: 'date'
             });
 
-            if (response.data.items.length > 0) {
-                const video = response.data.items[0];
-                return {
-                    videoId: video.id.videoId,
-                    title: video.snippet.title,
-                    thumbnail: video.snippet.thumbnails.medium.url,
-                    channelTitle: video.snippet.channelTitle,
-                    publishedAt: video.snippet.publishedAt
-                };
+            console.log(`Search API response: ${searchResponse.data.items.length} items found`);
+            
+            if (searchResponse.data.items.length > 0) {
+                for (const video of searchResponse.data.items) {
+                    console.log(`Found video: ${video.snippet.title} (${video.id.videoId})`);
+                    
+                    // Double-check if it's actually live
+                    const videoDetails = await this.getVideoInfo(video.id.videoId);
+                    if (videoDetails && videoDetails.isLive) {
+                        console.log(`Confirmed live: ${videoDetails.title}`);
+                        return {
+                            videoId: video.id.videoId,
+                            title: video.snippet.title,
+                            thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+                            channelTitle: video.snippet.channelTitle,
+                            publishedAt: video.snippet.publishedAt
+                        };
+                    }
+                }
             }
+
+            // Method 2: Check channel's recent videos for live content
+            console.log('No live streams found via search, checking recent videos...');
+            const recentResponse = await this.youtube.search.list({
+                channelId: channelId,
+                type: 'video',
+                part: 'snippet',
+                maxResults: 20,
+                order: 'date'
+            });
+
+            console.log(`Recent videos check: ${recentResponse.data.items.length} items found`);
+            
+            for (const video of recentResponse.data.items) {
+                if (video.snippet.liveBroadcastContent === 'live') {
+                    console.log(`Found live broadcast: ${video.snippet.title}`);
+                    return {
+                        videoId: video.id.videoId,
+                        title: video.snippet.title,
+                        thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+                        channelTitle: video.snippet.channelTitle,
+                        publishedAt: video.snippet.publishedAt
+                    };
+                }
+            }
+
+            console.log('No live streams detected');
             return null;
         } catch (error) {
             console.error('YouTube API error in checkChannelLive:', error);
+            console.error('Error details:', {
+                message: error.message,
+                code: error.code,
+                errors: error.errors
+            });
             throw error;
         }
     }

@@ -266,6 +266,37 @@ function createApiRoutes(database, youtubeService, chromecastService, scheduleSe
         }
     });
 
+    // デバッグ用: チャンネルのすべての最近の動画を取得
+    router.get('/youtube/channel/:id/videos', async (req, res) => {
+        try {
+            const { maxResults = 20 } = req.query;
+            const response = await youtubeService.youtube.search.list({
+                channelId: req.params.id,
+                type: 'video',
+                part: 'snippet',
+                maxResults: parseInt(maxResults),
+                order: 'date'
+            });
+
+            const videos = response.data.items.map(video => ({
+                videoId: video.id.videoId,
+                title: video.snippet.title,
+                publishedAt: video.snippet.publishedAt,
+                liveBroadcastContent: video.snippet.liveBroadcastContent,
+                thumbnails: video.snippet.thumbnails
+            }));
+
+            res.json({ 
+                channelId: req.params.id,
+                totalResults: response.data.pageInfo.totalResults,
+                videos: videos
+            });
+        } catch (error) {
+            console.error('Get channel videos error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // ログ管理API
     router.get('/logs', async (req, res) => {
         try {
