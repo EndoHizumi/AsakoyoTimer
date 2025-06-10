@@ -1,6 +1,6 @@
-# YouTube自動Cast配信システム
+# AsakoyoTimer
 
-YouTube Live配信を自動検知してChromeCastデバイスにキャストする自動化システムです。
+YouTube Live配信を自動検知してChromeCastデバイスにキャストする自動化システム AsakoyoTimer です。
 
 ## 特徴
 
@@ -22,8 +22,8 @@ YouTube Live配信を自動検知してChromeCastデバイスにキャストす�
 ### 1. リポジトリのクローン
 
 ```bash
-git clone <repository-url>
-cd youtube-autocast
+git clone <repository-url> AsakoyoTimer
+cd AsakoyoTimer
 ```
 
 ### 2. サーバー依存関係のインストール

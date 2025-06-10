@@ -7,10 +7,12 @@
 ## 1. 問題の概要
 
 ### 報告された問題
+
 - スケジュールに配信中のチャンネルを設定しても「ライブ配信がない」と判定される
 - YouTube Live配信の自動検出機能が正常に動作していない可能性
 
 ### 検証したチャンネル
+
 - **チャンネルID:** `UC-hM6YJuNYVAmUWxeIr9FeA`
 - **チャンネル名:** Miko Ch. さくらみこ
 - **配信内容:** Minecraft配信（実際にライブ配信中で検証）
@@ -20,11 +22,13 @@
 ### 2.1 YouTube API検出ロジックの強化
 
 **修正前の問題点:**
+
 - 単一の検索方法（`search.list` with `eventType: 'live'`）のみ
 - エラー時の詳細ログが不足
 - フォールバック機能なし
 
 **修正後の改善点:**
+
 ```javascript
 // Method 1: eventType='live'での検索
 const searchResponse = await this.youtube.search.list({
@@ -54,12 +58,14 @@ if (video.snippet.liveBroadcastContent === 'live') {
 ### 2.2 詳細ログ機能の追加
 
 **追加されたログ出力:**
+
 - チャンネル検索開始ログ
 - API応答の件数表示
 - 各動画の詳細情報
 - エラー詳細（メッセージ、コード、詳細エラー）
 
 **ログ例:**
+
 ```
 Checking live stream for channel: UC-hM6YJuNYVAmUWxeIr9FeA
 Search API response: 1 items found
@@ -70,16 +76,19 @@ Confirmed live: 【 Minecraft 】#ホロ金策サバイバル DAY2💰
 ### 2.3 デバッグ用APIエンドポイントの追加
 
 **新規追加API:**
+
 ```
 GET /api/youtube/channel/:id/videos
 ```
 
 **機能:**
+
 - チャンネルの最近の動画一覧を取得
 - `liveBroadcastContent`ステータス確認
 - デバッグ・トラブルシューティング用
 
 **レスポンス例:**
+
 ```json
 {
   "channelId": "UC-hM6YJuNYVAmUWxeIr9FeA",
@@ -99,6 +108,7 @@ GET /api/youtube/channel/:id/videos
 ### 2.4 二重チェック機能の実装
 
 **仕様:**
+
 1. `search.list`でライブ配信候補を検索
 2. 各候補に対して`getVideoInfo`で詳細確認
 3. `isLive`ステータスを再確認
@@ -109,6 +119,7 @@ GET /api/youtube/channel/:id/videos
 ### 3.1 環境変数でのセキュリティモード制御
 
 **追加された設定:**
+
 ```env
 SECURITY_MODE=local  # local/production/strict
 ```
@@ -124,6 +135,7 @@ SECURITY_MODE=local  # local/production/strict
 ### 3.2 Helmetセキュリティミドルウェアの動的設定
 
 **実装内容:**
+
 ```javascript
 getHelmetConfig(securityMode) {
     switch (securityMode) {
@@ -155,15 +167,18 @@ getHelmetConfig(securityMode) {
 ### 4.1 実環境テスト
 
 **テスト対象:**
+
 - チャンネル: `UC-hM6YJuNYVAmUWxeIr9FeA` (さくらみこ)
 - 配信状況: Minecraft配信中
 
 **テスト結果:**
+
 ```bash
 curl "http://192.168.2.120:3000/api/youtube/channel/UC-hM6YJuNYVAmUWxeIr9FeA/live"
 ```
 
 **レスポンス:**
+
 ```json
 {
   "isLive": true,
@@ -194,11 +209,13 @@ curl "http://192.168.2.120:3000/api/youtube/channel/UC-hM6YJuNYVAmUWxeIr9FeA/liv
 ### 5.1 YouTube API v3活用の最適化
 
 **改善された検索戦略:**
+
 1. **Primary検索:** `eventType: 'live'`での直接検索
 2. **Secondary検索:** 最近の動画から`liveBroadcastContent`確認
 3. **Verification:** `videos.list`での詳細確認
 
 **API呼び出し最適化:**
+
 - 最大結果数の調整（1→10）
 - 順序指定（`order: 'date'`）
 - 必要なフィールドのみ取得
@@ -206,6 +223,7 @@ curl "http://192.168.2.120:3000/api/youtube/channel/UC-hM6YJuNYVAmUWxeIr9FeA/liv
 ### 5.2 エラーハンドリングの強化
 
 **追加されたエラー情報:**
+
 ```javascript
 console.error('Error details:', {
     message: error.message,
@@ -215,6 +233,7 @@ console.error('Error details:', {
 ```
 
 **エラータイプの分類:**
+
 - API制限エラー
 - 認証エラー
 - ネットワークエラー
@@ -223,6 +242,7 @@ console.error('Error details:', {
 ### 5.3 パフォーマンス向上
 
 **最適化項目:**
+
 - 不要なAPI呼び出し削減
 - 並列処理の活用（候補動画の確認）
 - キャッシュ可能な情報の識別
@@ -232,12 +252,15 @@ console.error('Error details:', {
 ### 6.1 ライブ配信が検出されない場合
 
 **確認手順:**
+
 1. **手動API確認:**
+
    ```bash
    curl "http://YOUR_SERVER:3000/api/youtube/channel/CHANNEL_ID/live"
    ```
 
 2. **ログ確認:**
+
    ```bash
    sudo journalctl -u youtube-autocast -f
    ```
@@ -253,14 +276,17 @@ console.error('Error details:', {
 ### 6.2 よくある問題と解決法
 
 **問題1: 配信中でも検出されない**
+
 - **原因:** チャンネルIDが間違っている
 - **解決:** YouTube URLから正確なチャンネルIDを取得
 
 **問題2: API エラーが発生**
+
 - **原因:** YouTube Data API v3の制限
 - **解決:** APIキーの確認、クォータ制限の確認
 
 **問題3: 断続的な検出失敗**
+
 - **原因:** ネットワーク不安定
 - **解決:** リトライ機能の実装（今後の改善項目）
 

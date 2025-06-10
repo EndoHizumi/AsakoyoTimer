@@ -29,7 +29,7 @@
             <span class="material-icons text-white text-lg">cast</span>
           </div>
           <h1 class="text-xl font-medium text-gray-900 dark:text-gray-100 truncate transition-colors duration-200" style="font-weight: 500;">
-            YouTube自動Cast配信システム
+            AsakoyoTimer
           </h1>
         </div>
         

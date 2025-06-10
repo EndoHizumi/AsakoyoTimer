@@ -77,11 +77,11 @@ npm start
 ## 4. systemdサービス設定
 
 ### 4.1 サービスファイル作成
-`/etc/systemd/system/youtube-autocast.service`を作成：
+`/etc/systemd/system/asakoyo-timer.service`を作成：
 
 ```ini
 [Unit]
-Description=YouTube AutoCast Service
+Description=AsakoyoTimer Service
 After=network.target
 
 [Service]
@@ -96,7 +96,7 @@ Environment=NODE_ENV=production
 # ログ設定
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=youtube-autocast
+SyslogIdentifier=asakoyo-timer
 
 [Install]
 WantedBy=multi-user.target
@@ -130,13 +130,13 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload
 
 # 自動起動有効化
-sudo systemctl enable youtube-autocast
+sudo systemctl enable asakoyo-timer
 
 # サービス開始
-sudo systemctl start youtube-autocast
+sudo systemctl start asakoyo-timer
 
 # 状態確認
-sudo systemctl status youtube-autocast
+sudo systemctl status asakoyo-timer
 ```
 
 ## 5. 運用管理
@@ -144,28 +144,28 @@ sudo systemctl status youtube-autocast
 ### 5.1 ログ管理
 ```bash
 # リアルタイムログ監視
-sudo journalctl -u youtube-autocast -f
+sudo journalctl -u asakoyo-timer -f
 
 # 過去ログ確認
-sudo journalctl -u youtube-autocast --since today
+sudo journalctl -u asakoyo-timer --since today
 
 # ログ期間指定
-sudo journalctl -u youtube-autocast --since "2025-06-10 09:00:00"
+sudo journalctl -u asakoyo-timer --since "2025-06-10 09:00:00"
 ```
 
 ### 5.2 サービス操作
 ```bash
 # サービス停止
-sudo systemctl stop youtube-autocast
+sudo systemctl stop asakoyo-timer
 
 # サービス再起動
-sudo systemctl restart youtube-autocast
+sudo systemctl restart asakoyo-timer
 
 # 設定リロード
-sudo systemctl reload youtube-autocast
+sudo systemctl reload asakoyo-timer
 
 # 自動起動無効化
-sudo systemctl disable youtube-autocast
+sudo systemctl disable asakoyo-timer
 ```
 
 ### 5.3 アプリケーション更新
@@ -173,7 +173,7 @@ sudo systemctl disable youtube-autocast
 cd /home/pi/AsakoyoTimer
 
 # アプリケーション停止
-sudo systemctl stop youtube-autocast
+sudo systemctl stop asakoyo-timer
 
 # コード更新
 git pull origin master
@@ -185,7 +185,7 @@ npm install
 npm run build
 
 # サービス再開
-sudo systemctl start youtube-autocast
+sudo systemctl start asakoyo-timer
 ```
 
 ## 6. アーキテクチャの特徴
@@ -287,7 +287,7 @@ df -h
 
 ## 10. まとめ
 
-YouTube AutoCast システムは、Raspberry Pi 4Bでの運用に適した軽量なアーキテクチャを採用しています。systemdサービスとして稼働することで、安定した24時間運用が可能です。
+AsakoyoTimer システムは、Raspberry Pi 4Bでの運用に適した軽量なアーキテクチャを採用しています。systemdサービスとして稼働することで、安定した24時間運用が可能です。
 
 **運用開始前のチェックリスト**
 - [ ] ハードウェア構成の確認

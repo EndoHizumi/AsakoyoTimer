@@ -1,7 +1,7 @@
 {
-  "name": "youtube-autocast-server",
+  "name": "asakoyo-timer-server",
   "version": "1.0.0",
-  "description": "YouTube自動Cast配信システム サーバー",
+  "description": "AsakoyoTimer Server - YouTube自動Cast配信システム サーバー",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",

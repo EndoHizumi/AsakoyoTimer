@@ -1,7 +1,7 @@
 {
-  "name": "youtube-autocast",
+  "name": "asakoyo-timer",
   "version": "1.0.0",
-  "description": "YouTube自動Cast配信システム",
+  "description": "AsakoyoTimer - YouTube自動Cast配信システム",
   "scripts": {
     "install:all": "cd server && npm install && cd ../client && npm install",
     "dev:server": "cd server && npm run dev",

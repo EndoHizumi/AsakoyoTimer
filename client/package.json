@@ -1,7 +1,7 @@
 {
-  "name": "youtube-autocast-client",
+  "name": "asakoyo-timer-client",
   "version": "1.0.0",
-  "description": "YouTube自動Cast配信システム クライアント",
+  "description": "AsakoyoTimer Client - YouTube自動Cast配信システム クライアント",
   "scripts": {
     "build": "vite build",
     "dev": "vite dev --port 5173",
