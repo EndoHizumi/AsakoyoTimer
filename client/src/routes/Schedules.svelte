@@ -216,6 +216,82 @@
     }
   }
 
+  // チャンネルURLからお気に入りに追加する機能
+  let channelUrlInput = '';
+  let isImportingFromUrl = false;
+
+  async function importChannelFromUrl() {
+    if (!channelUrlInput.trim()) {
+      alert('チャンネルURLを入力してください。');
+      return;
+    }
+
+    isImportingFromUrl = true;
+    try {
+      // YouTubeチャンネルURLからチャンネルIDを抽出
+      const channelId = extractChannelIdFromUrl(channelUrlInput.trim());
+      
+      if (!channelId) {
+        alert('有効なYouTubeチャンネルURLを入力してください。\n例: https://www.youtube.com/@username\n例: https://www.youtube.com/channel/UCxxxxx');
+        return;
+      }
+
+      // 既にお気に入りに登録されているかチェック
+      const isAlreadyFavorite = favoriteChannels.some(fav => fav.channel_id === channelId);
+      
+      if (isAlreadyFavorite) {
+        alert('このチャンネルは既にお気に入りに登録されています。');
+        return;
+      }
+
+      // チャンネル詳細情報を取得
+      const channelInfo = await youtubeApi.getChannelInfo(channelId);
+      
+      // お気に入りに追加
+      await favoritesApi.add({
+        channel_id: channelId,
+        channel_name: channelInfo.name,
+        thumbnail: channelInfo.thumbnail,
+        description: channelInfo.description,
+        subscriber_count: channelInfo.subscriberCount
+      });
+      
+      await loadFavoriteChannels();
+      
+      alert(`${channelInfo.name} をお気に入りに追加しました。`);
+      channelUrlInput = '';
+    } catch (err) {
+      console.error('Channel import error:', err);
+      alert('チャンネルの追加に失敗しました: ' + err.message);
+    } finally {
+      isImportingFromUrl = false;
+    }
+  }
+
+  function extractChannelIdFromUrl(url) {
+    // 様々なYouTubeチャンネルURL形式に対応
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/channel\/([a-zA-Z0-9_-]{24})/,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/c\/([a-zA-Z0-9_-]+)/,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/@([a-zA-Z0-9_.-]+)/,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/user\/([a-zA-Z0-9_-]+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+
+    // チャンネルIDが直接入力された場合
+    if (/^UC[a-zA-Z0-9_-]{22}$/.test(url)) {
+      return url;
+    }
+
+    return null;
+  }
+
   async function saveSchedule() {
     try {
       if (editingSchedule.id) {
@@ -306,6 +382,40 @@
       </div>
     </div>
   {/if}
+
+  <!-- チャンネルURL追加セクション -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 transition-colors duration-200" style="box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div class="flex items-center mb-3">
+      <span class="material-icons text-purple-600 dark:text-purple-400 mr-3">link</span>
+      <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">YouTubeチャンネルURLから追加</h2>
+    </div>
+    <div class="flex space-x-3">
+      <input
+        type="text"
+        bind:value={channelUrlInput}
+        placeholder="https://www.youtube.com/@username または https://www.youtube.com/channel/UCxxxxx"
+        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-gray-100"
+        disabled={isImportingFromUrl}
+      />
+      <button
+        on:click={importChannelFromUrl}
+        disabled={isImportingFromUrl || !channelUrlInput.trim()}
+        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white rounded-md transition-colors shadow-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+        style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+      >
+        {#if isImportingFromUrl}
+          <span class="material-icons mr-2 text-sm animate-spin">refresh</span>
+          追加中...
+        {:else}
+          <span class="material-icons mr-2 text-sm">add</span>
+          お気に入りに追加
+        {/if}
+      </button>
+    </div>
+    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+      💡 YouTubeで気になるチャンネルのURLをコピー＆ペーストして、簡単にお気に入りに追加できます
+    </div>
+  </div>
 
   {#if isEditing}
     <!-- スケジュール編集フォーム -->
