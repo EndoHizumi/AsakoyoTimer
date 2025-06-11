@@ -92,13 +92,22 @@
   }
 
   function selectUpcomingStream(stream) {
+    // 配信予定時刻から曜日と時刻を計算
+    const scheduledDate = new Date(stream.scheduledStartTime);
+    const dayOfWeek = scheduledDate.getDay(); // 0=日曜日, 1=月曜日, ...
+    const hours = scheduledDate.getHours().toString().padStart(2, '0');
+    const minutes = scheduledDate.getMinutes().toString().padStart(2, '0');
+    const startTime = `${hours}:${minutes}`;
+    
     editingSchedule = {
       ...editingSchedule,
       channel_id: selectedChannelForUpcoming.channelId || selectedChannelForUpcoming.channel_id,
       channel_name: stream.channelTitle,
       video_title: stream.title,
       video_id: stream.videoId,
-      scheduled_start_time: stream.scheduledStartTime
+      scheduled_start_time: stream.scheduledStartTime,
+      day_of_week: dayOfWeek,
+      start_time: startTime
     };
     upcomingStreams = [];
     selectedChannelForUpcoming = null;
@@ -244,9 +253,25 @@
               <div class="text-sm text-green-800">
                 選択中: <strong>{editingSchedule.channel_name}</strong>
               </div>
+              {#if editingSchedule.video_title}
+                <div class="text-xs text-green-700 mt-1">
+                  📺 配信予定: {editingSchedule.video_title}
+                </div>
+              {/if}
+              {#if editingSchedule.scheduled_start_time}
+                <div class="text-xs text-blue-700 mt-1">
+                  ⏰ 配信時刻: {new Date(editingSchedule.scheduled_start_time).toLocaleString('ja-JP')} から自動設定
+                </div>
+              {/if}
               <button
                 type="button"
-                on:click={() => {editingSchedule.channel_id = ''; editingSchedule.channel_name = '';}}
+                on:click={() => {
+                  editingSchedule.channel_id = ''; 
+                  editingSchedule.channel_name = ''; 
+                  editingSchedule.video_title = '';
+                  editingSchedule.video_id = '';
+                  editingSchedule.scheduled_start_time = '';
+                }}
                 class="mt-1 text-xs text-green-600 hover:text-green-800"
               >
                 選択を解除
@@ -527,6 +552,11 @@
                 <option value={index}>{day}</option>
               {/each}
             </select>
+            {#if editingSchedule.scheduled_start_time}
+              <div class="text-xs text-blue-600 mt-1">
+                📅 配信予定から自動設定
+              </div>
+            {/if}
           </div>
 
           <div>
@@ -537,6 +567,11 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
+            {#if editingSchedule.scheduled_start_time}
+              <div class="text-xs text-blue-600 mt-1">
+                ⏰ 配信予定から自動設定
+              </div>
+            {/if}
           </div>
         </div>
 
