@@ -96,7 +96,9 @@ export const youtubeApi = {
     
     getChannelInfo: (channelId) => apiRequest(`/youtube/channel/${channelId}`),
     
-    checkChannelLive: (channelId) => apiRequest(`/youtube/channel/${channelId}/live`)
+    checkChannelLive: (channelId) => apiRequest(`/youtube/channel/${channelId}/live`),
+    
+    getUpcomingStreams: (channelId) => apiRequest(`/youtube/channel/${channelId}/upcoming`)
 };
 
 // System API

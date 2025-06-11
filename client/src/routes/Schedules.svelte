@@ -12,9 +12,12 @@
   let isSearching = false;
   let favoriteChannels = [];
   let recentChannels = [];
-  let showingTab = 'favorites'; // 'favorites', 'recent', 'search'
+  let showingTab = 'favorites'; // 'favorites', 'recent', 'search', 'upcoming'
   let availableDevices = [];
   let loadingDevices = false;
+  let upcomingStreams = [];
+  let loadingUpcoming = false;
+  let selectedChannelForUpcoming = null;
 
   const dayNames = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
 
@@ -86,6 +89,36 @@
     channelSearchResults = [];
     searchQuery = '';
     showingTab = 'favorites';
+  }
+
+  function selectUpcomingStream(stream) {
+    editingSchedule = {
+      ...editingSchedule,
+      channel_id: selectedChannelForUpcoming.channelId || selectedChannelForUpcoming.channel_id,
+      channel_name: stream.channelTitle,
+      video_title: stream.title,
+      video_id: stream.videoId,
+      scheduled_start_time: stream.scheduledStartTime
+    };
+    upcomingStreams = [];
+    selectedChannelForUpcoming = null;
+    showingTab = 'favorites';
+  }
+
+  async function loadUpcomingStreams(channel) {
+    if (!channel) return;
+    
+    loadingUpcoming = true;
+    selectedChannelForUpcoming = channel;
+    showingTab = 'upcoming';
+    try {
+      upcomingStreams = await youtubeApi.getUpcomingStreams(channel.channelId || channel.channel_id);
+    } catch (err) {
+      error = err.message;
+      upcomingStreams = [];
+    } finally {
+      loadingUpcoming = false;
+    }
   }
 
   async function addToFavorites(channel) {
@@ -247,6 +280,14 @@
             >
               検索
             </button>
+            <button
+              type="button"
+              on:click={() => showingTab = 'upcoming'}
+              class="px-3 py-1 text-sm rounded-md transition-colors
+                {showingTab === 'upcoming' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+            >
+              📅 配信予定
+            </button>
           </div>
 
           <!-- お気に入りチャンネル -->
@@ -270,14 +311,24 @@
                       <div class="text-xs text-gray-500 truncate max-w-xs">{channel.description || ''}</div>
                     </div>
                   </button>
-                  <button
-                    type="button"
-                    on:click={() => removeFromFavorites(channel.channel_id)}
-                    class="ml-2 text-red-500 hover:text-red-700 text-xs"
-                    title="お気に入りから削除"
-                  >
-                    ❌
-                  </button>
+                  <div class="flex space-x-1">
+                    <button
+                      type="button"
+                      on:click={() => loadUpcomingStreams(channel)}
+                      class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 bg-blue-50 rounded"
+                      title="配信予定を確認"
+                    >
+                      📅
+                    </button>
+                    <button
+                      type="button"
+                      on:click={() => removeFromFavorites(channel.channel_id)}
+                      class="text-red-500 hover:text-red-700 text-xs"
+                      title="お気に入りから削除"
+                    >
+                      ❌
+                    </button>
+                  </div>
                 </div>
               {/each}
             </div>
@@ -311,6 +362,109 @@
             </div>
           {/if}
 
+          <!-- 配信予定選択 -->
+          {#if showingTab === 'upcoming'}
+            <div class="space-y-3">
+              {#if !selectedChannelForUpcoming}
+                <div class="text-sm text-gray-600 mb-3">
+                  まず配信予定を確認したいチャンネルを選択してください
+                </div>
+                
+                <!-- お気に入りチャンネルから選択 -->
+                <div class="border border-gray-200 rounded-md max-h-32 overflow-y-auto">
+                  <div class="px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700 border-b border-gray-200">
+                    お気に入りチャンネル
+                  </div>
+                  {#if favoriteChannels.length === 0}
+                    <div class="p-3 text-center text-gray-500 text-sm">
+                      お気に入りチャンネルがありません
+                    </div>
+                  {/if}
+                  {#each favoriteChannels as channel}
+                    <button
+                      type="button"
+                      on:click={() => loadUpcomingStreams(channel)}
+                      class="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
+                    >
+                      <img src={channel.thumbnail || '/default-avatar.png'} alt="" class="w-6 h-6 rounded-full" />
+                      <span class="text-sm">{channel.channel_name}</span>
+                    </button>
+                  {/each}
+                </div>
+                
+                <!-- 最近使用したチャンネルから選択 -->
+                <div class="border border-gray-200 rounded-md max-h-32 overflow-y-auto">
+                  <div class="px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700 border-b border-gray-200">
+                    最近使用したチャンネル
+                  </div>
+                  {#if recentChannels.length === 0}
+                    <div class="p-3 text-center text-gray-500 text-sm">
+                      最近使用したチャンネルがありません
+                    </div>
+                  {/if}
+                  {#each recentChannels as channel}
+                    <button
+                      type="button"
+                      on:click={() => loadUpcomingStreams(channel)}
+                      class="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
+                    >
+                      <div class="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                        <span class="text-xs text-gray-600">📺</span>
+                      </div>
+                      <span class="text-sm">{channel.channel_name}</span>
+                    </button>
+                  {/each}
+                </div>
+              {:else}
+                <!-- 選択されたチャンネルの配信予定を表示 -->
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+                  <div class="flex items-center justify-between">
+                    <div class="text-sm text-blue-800">
+                      <strong>{selectedChannelForUpcoming.channel_name || selectedChannelForUpcoming.name}</strong> の配信予定
+                    </div>
+                    <button
+                      type="button"
+                      on:click={() => {selectedChannelForUpcoming = null; upcomingStreams = [];}}
+                      class="text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      戻る
+                    </button>
+                  </div>
+                </div>
+                
+                {#if loadingUpcoming}
+                  <div class="text-center py-4 text-gray-500">
+                    配信予定を読み込み中...
+                  </div>
+                {:else if upcomingStreams.length === 0}
+                  <div class="text-center py-4 text-gray-500">
+                    このチャンネルには配信予定がありません
+                  </div>
+                {:else}
+                  <div class="border border-gray-200 rounded-md max-h-48 overflow-y-auto">
+                    {#each upcomingStreams as stream}
+                      <button
+                        type="button"
+                        on:click={() => selectUpcomingStream(stream)}
+                        class="w-full text-left px-3 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div class="flex items-start space-x-3">
+                          <img src={stream.thumbnail} alt="" class="w-12 h-9 rounded object-cover" />
+                          <div class="flex-1 min-w-0">
+                            <div class="font-medium text-sm text-gray-900 line-clamp-2">{stream.title}</div>
+                            <div class="text-xs text-gray-500 mt-1">
+                              配信予定: {new Date(stream.scheduledStartTime).toLocaleString('ja-JP')}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              {/if}
+            </div>
+          {/if}
+          
           <!-- チャンネル検索 -->
           {#if showingTab === 'search'}
             <div class="space-y-2">
