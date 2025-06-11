@@ -157,6 +157,65 @@
     }
   }
 
+  async function importScheduleChannelsToFavorites() {
+    try {
+      // スケジュールからユニークなチャンネルを抽出
+      const uniqueChannels = new Map();
+      schedules.forEach(schedule => {
+        if (schedule.channel_id && schedule.channel_name) {
+          uniqueChannels.set(schedule.channel_id, {
+            channel_id: schedule.channel_id,
+            channel_name: schedule.channel_name
+          });
+        }
+      });
+
+      let importedCount = 0;
+      let alreadyExistsCount = 0;
+      
+      for (const [channelId, channel] of uniqueChannels) {
+        // 既にお気に入りに登録されているかチェック
+        const isAlreadyFavorite = favoriteChannels.some(fav => fav.channel_id === channelId);
+        
+        if (!isAlreadyFavorite) {
+          try {
+            // チャンネル詳細情報を取得
+            const channelInfo = await youtubeApi.getChannelInfo(channelId);
+            
+            // お気に入りに追加
+            await favoritesApi.add({
+              channel_id: channelId,
+              channel_name: channel.channel_name,
+              thumbnail: channelInfo.thumbnail,
+              description: channelInfo.description,
+              subscriber_count: channelInfo.subscriberCount
+            });
+            
+            importedCount++;
+          } catch (channelError) {
+            console.warn(`Failed to import channel ${channel.channel_name}:`, channelError);
+          }
+        } else {
+          alreadyExistsCount++;
+        }
+      }
+      
+      await loadFavoriteChannels();
+      
+      // 結果をユーザーに通知
+      if (importedCount > 0) {
+        alert(`${importedCount}件のチャンネルをお気に入りに追加しました。${alreadyExistsCount > 0 ? `(${alreadyExistsCount}件は既に登録済み)` : ''}`);
+      } else if (alreadyExistsCount > 0) {
+        alert('スケジュールのチャンネルは全て既にお気に入りに登録済みです。');
+      } else {
+        alert('インポートできるチャンネルがありません。');
+      }
+    } catch (err) {
+      error = err.message;
+      alert('一括インポート中にエラーが発生しました: ' + err.message);
+    }
+  }
+
   async function saveSchedule() {
     try {
       if (editingSchedule.id) {
@@ -218,14 +277,25 @@
 <div class="space-y-6">
   <div class="flex justify-between items-center">
     <h1 class="text-2xl font-medium text-gray-900 dark:text-gray-100 transition-colors duration-200" style="font-weight: 500;">配信スケジュール管理</h1>
-    <button
-      on:click={addSchedule}
-      class="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors shadow-sm flex items-center"
-      style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
-    >
-      <span class="material-icons mr-2 text-sm">add</span>
-      新規作成
-    </button>
+    <div class="flex space-x-3">
+      <button
+        on:click={importScheduleChannelsToFavorites}
+        class="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white rounded-md transition-colors shadow-sm flex items-center"
+        style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+        title="登録済みスケジュールのチャンネルをお気に入りに一括追加"
+      >
+        <span class="material-icons mr-2 text-sm">download</span>
+        お気に入りに一括追加
+      </button>
+      <button
+        on:click={addSchedule}
+        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors shadow-sm flex items-center"
+        style="box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+      >
+        <span class="material-icons mr-2 text-sm">add</span>
+        新規作成
+      </button>
+    </div>
   </div>
 
   {#if error}
