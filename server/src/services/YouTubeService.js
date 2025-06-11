@@ -161,22 +161,47 @@ class YouTubeService {
 
     async checkChannelUpcomingStreams(channelId) {
         try {
+            // まず最新の動画を取得
             const response = await this.youtube.search.list({
                 channelId: channelId,
-                eventType: 'upcoming',
                 type: 'video',
                 part: 'snippet',
-                maxResults: 10,
+                maxResults: 20,
                 order: 'date'
             });
 
-            return response.data.items.map(video => ({
-                videoId: video.id.videoId,
-                title: video.snippet.title,
-                thumbnail: video.snippet.thumbnails.medium.url,
-                channelTitle: video.snippet.channelTitle,
-                scheduledStartTime: video.snippet.publishedAt
-            }));
+            // upcoming状態の動画をフィルタ
+            const upcomingVideos = response.data.items.filter(video => 
+                video.snippet.liveBroadcastContent === 'upcoming'
+            );
+
+            // 詳細情報を取得して正確な開始予定時刻を取得
+            const detailedVideos = await Promise.all(
+                upcomingVideos.map(async (video) => {
+                    try {
+                        const videoDetails = await this.getVideoInfo(video.id.videoId);
+                        return {
+                            videoId: video.id.videoId,
+                            title: video.snippet.title,
+                            thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+                            channelTitle: video.snippet.channelTitle,
+                            scheduledStartTime: videoDetails?.liveStreamingDetails?.scheduledStartTime || video.snippet.publishedAt
+                        };
+                    } catch (err) {
+                        console.error(`Failed to get details for video ${video.id.videoId}:`, err.message);
+                        return {
+                            videoId: video.id.videoId,
+                            title: video.snippet.title,
+                            thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+                            channelTitle: video.snippet.channelTitle,
+                            scheduledStartTime: video.snippet.publishedAt
+                        };
+                    }
+                })
+            );
+
+
+            return detailedVideos;
         } catch (error) {
             console.error('YouTube API error in checkChannelUpcomingStreams:', error);
             throw error;

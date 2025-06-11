@@ -266,6 +266,16 @@ function createApiRoutes(database, youtubeService, chromecastService, scheduleSe
         }
     });
 
+    router.get('/youtube/channel/:id/upcoming', async (req, res) => {
+        try {
+            const upcomingStreams = await youtubeService.checkChannelUpcomingStreams(req.params.id);
+            res.json(upcomingStreams);
+        } catch (error) {
+            console.error('Get upcoming streams error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // デバッグ用: チャンネルのすべての最近の動画を取得
     router.get('/youtube/channel/:id/videos', async (req, res) => {
         try {
