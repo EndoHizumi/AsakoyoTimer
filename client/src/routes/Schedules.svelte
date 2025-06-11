@@ -84,7 +84,11 @@
     editingSchedule = {
       ...editingSchedule,
       channel_id: channel.channelId || channel.channel_id,
-      channel_name: channel.name || channel.channel_name
+      channel_name: channel.name || channel.channel_name,
+      // 配信予定関連の情報をクリア
+      video_title: '',
+      video_id: '',
+      scheduled_start_time: ''
     };
     channelSearchResults = [];
     searchQuery = '';
