@@ -11,9 +11,9 @@ class YouTubeService {
 
     async checkChannelLive(channelId) {
         try {
-            console.log(`Checking live stream for channel: ${channelId}`);
+            console.log(`Checking live/upcoming stream for channel: ${channelId}`);
             
-            // Method 1: search.list with eventType
+            // Method 1: search.list with eventType live
             const searchResponse = await this.youtube.search.list({
                 channelId: channelId,
                 eventType: 'live',
@@ -23,11 +23,11 @@ class YouTubeService {
                 order: 'date'
             });
 
-            console.log(`Search API response: ${searchResponse.data.items.length} items found`);
+            console.log(`Live search API response: ${searchResponse.data.items.length} items found`);
             
             if (searchResponse.data.items.length > 0) {
                 for (const video of searchResponse.data.items) {
-                    console.log(`Found video: ${video.snippet.title} (${video.id.videoId})`);
+                    console.log(`Found live video: ${video.snippet.title} (${video.id.videoId})`);
                     
                     // Double-check if it's actually live
                     const videoDetails = await this.getVideoInfo(video.id.videoId);
@@ -38,14 +38,34 @@ class YouTubeService {
                             title: video.snippet.title,
                             thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
                             channelTitle: video.snippet.channelTitle,
-                            publishedAt: video.snippet.publishedAt
+                            publishedAt: video.snippet.publishedAt,
+                            status: 'live'
                         };
                     }
                 }
             }
 
-            // Method 2: Check channel's recent videos for live content
-            console.log('No live streams found via search, checking recent videos...');
+            // Method 2: Check for upcoming streams (配信待機状態)
+            console.log('No live streams found, checking for upcoming streams...');
+            const upcomingStreams = await this.checkChannelUpcomingStreams(channelId);
+            
+            if (upcomingStreams.length > 0) {
+                // 最も近い配信予定を選択
+                const nextStream = upcomingStreams[0];
+                console.log(`Found upcoming stream: ${nextStream.title}`);
+                return {
+                    videoId: nextStream.videoId,
+                    title: nextStream.title,
+                    thumbnail: nextStream.thumbnail,
+                    channelTitle: nextStream.channelTitle,
+                    publishedAt: nextStream.scheduledStartTime,
+                    status: 'upcoming',
+                    scheduledStartTime: nextStream.scheduledStartTime
+                };
+            }
+
+            // Method 3: Check channel's recent videos for live content
+            console.log('No upcoming streams found, checking recent videos...');
             const recentResponse = await this.youtube.search.list({
                 channelId: channelId,
                 type: 'video',
@@ -57,19 +77,20 @@ class YouTubeService {
             console.log(`Recent videos check: ${recentResponse.data.items.length} items found`);
             
             for (const video of recentResponse.data.items) {
-                if (video.snippet.liveBroadcastContent === 'live') {
-                    console.log(`Found live broadcast: ${video.snippet.title}`);
+                if (video.snippet.liveBroadcastContent === 'live' || video.snippet.liveBroadcastContent === 'upcoming') {
+                    console.log(`Found ${video.snippet.liveBroadcastContent} broadcast: ${video.snippet.title}`);
                     return {
                         videoId: video.id.videoId,
                         title: video.snippet.title,
                         thumbnail: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
                         channelTitle: video.snippet.channelTitle,
-                        publishedAt: video.snippet.publishedAt
+                        publishedAt: video.snippet.publishedAt,
+                        status: video.snippet.liveBroadcastContent
                     };
                 }
             }
 
-            console.log('No live streams detected');
+            console.log('No live or upcoming streams detected');
             return null;
         } catch (error) {
             console.error('YouTube API error in checkChannelLive:', error);
